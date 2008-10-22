@@ -15,43 +15,112 @@ module Control.Monad.Loops
 
 import Control.Monad
 
+import Control.Exception
+import Control.Concurrent
+
 #ifdef useSTM
 import Control.Monad.Loops.STM
 #endif
 
-{-# SPECIALIZE while :: IO Bool -> IO a -> IO () #-}
+-- concatMapM :: (Monad m, Traversable f, Monoid w) => (a -> m w) -> (f a) -> m w
 
-while :: (Monad m) => m Bool -> m a -> m ()
+forkMapM_ :: (a -> IO ()) -> [a] -> IO [Maybe Exception]
+forkMapM_ f xs = do
+        mvars <- forM xs $ \x -> do
+                mvar <- newEmptyMVar
+                forkIO $ do
+                        result <- handle (return . Just) $ do
+                                f x
+                                return Nothing
+                        putMVar mvar result
+                return mvar
+        
+        mapM takeMVar mvars
+
+forkMapM :: (a -> IO b) -> [a] -> IO [Either Exception b]
+forkMapM f xs = do
+        mvars <- forM xs $ \x -> do
+                mvar <- newEmptyMVar
+                forkIO $ do
+                        result <- handle (return . Left) $ do
+                                y <- f x
+                                return (Right y)
+                        putMVar mvar result
+                return mvar
+        
+        mapM takeMVar mvars
+
+{-# SPECIALIZE while  :: Monad m => m Bool -> m a -> m [a] #-}
+{-# SPECIALIZE while  :: IO Bool -> IO a -> IO [a] #-}
+{-# SPECIALIZE while_ :: IO Bool -> IO a -> IO () #-}
+
+while :: (Monad m, MonadPlus f) => m Bool -> m a -> m (f a)
 while p f = do
         x <- p
         if x
                 then do
+                        x  <- f
+                        xs <- while p f
+                        return (return x `mplus` xs)
+                else return mzero
+
+while_ :: (Monad m) => m Bool -> m a -> m ()
+while_ p f = do
+        x <- p
+        if x
+                then do
                         f
-                        while p f
+                        while_ p f
                 else return ()
 
-{-# SPECIALIZE whileJust :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
+{-# SPECIALIZE until  :: Monad m => m a -> m Bool -> m [a] #-}
+{-# SPECIALIZE until  :: IO a -> IO Bool -> IO [a] #-}
+{-# SPECIALIZE until_ :: IO a -> IO Bool -> IO () #-}
 
-whileJust :: (Monad m) => m (Maybe a) -> (a -> m b) -> m ()
+infixr 0 `until`
+infixr 0 `until_`
+
+until :: (Monad m, MonadPlus f) => m a -> m Bool -> m (f a)
+f `until` p = do
+        x  <- f
+        xs <- while p f
+        return (return x `mplus` xs)
+
+until_ :: (Monad m) => m a -> m Bool -> m ()
+f `until_` p = f >> while_ p f
+
+{-# SPECIALIZE whileJust  :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
+{-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
+
+whileJust :: (Monad m, MonadPlus f) => m (Maybe a) -> (a -> m b) -> m (f b)
 whileJust p f = do
+        x <- p
+        case x of
+                Nothing -> return mzero
+                Just x  -> do
+                        x  <- f x
+                        xs <- whileJust p f
+                        return (return x `mplus` xs)
+
+whileJust_ :: (Monad m) => m (Maybe a) -> (a -> m b) -> m ()
+whileJust_ p f = do
         x <- p
         case x of
                 Nothing -> return ()
                 Just x  -> do
                         f x
-                        whileJust p f
+                        whileJust_ p f
 
-{-# SPECIALIZE unfoldM :: (Monad m) => m (Maybe a) -> m [a] #-}
-{-# SPECIALIZE unfoldM :: IO (Maybe a) -> IO [a] #-}
+{-# SPECIALIZE unfoldM  :: (Monad m) => m (Maybe a) -> m [a] #-}
+{-# SPECIALIZE unfoldM  :: IO (Maybe a) -> IO [a] #-}
+{-# SPECIALIZE unfoldM_ :: IO (Maybe a) -> IO () #-}
 
 unfoldM :: (Monad m, MonadPlus f) => m (Maybe a) -> m (f a)
-unfoldM m = do
-        x <- m
-        case x of
-                Nothing -> return mzero
-                Just x  -> do
-                        xs <- unfoldM m
-                        return (return x `mplus` xs)
+unfoldM m = whileJust m return
+
+unfoldM_ :: (Monad m) => m (Maybe a) -> m ()
+unfoldM_ m = whileJust_ m return
 
 {-# SPECIALIZE unfoldrM :: (Monad m) => (a -> m (Maybe (b,a))) -> a -> m [b] #-}
 {-# SPECIALIZE unfoldrM :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
