@@ -1,6 +1,8 @@
 name:                   monad-loops
 version:                0.1
-stability:              provisional
+stability:              experimental
+license:                BSD3
+license-file:           LICENSE
 
 cabal-version:          >= 1.2
 build-type:             Simple
@@ -8,6 +10,8 @@ build-type:             Simple
 author:                 James Cook <mokus@deepbondi.net>
 maintainer:             James Cook <mokus@deepbondi.net>
 
+category:               Control
+synopsis:               Monadic loops
 description:            Some useful control operators for looping
 
 Flag useSTM
@@ -18,7 +22,7 @@ Flag useSTM
 Library
   hs-source-dirs:       src
   exposed-modules:      Control.Monad.Loops
-  build-depends:        base >= 3
+  build-depends:        base
 
   if flag(useSTM)
     build-depends:      stm

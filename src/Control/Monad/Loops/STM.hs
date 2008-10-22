@@ -5,13 +5,11 @@
 
 module Control.Monad.Loops.STM where
 
-import Control.Monad
-
 import Control.Concurrent
 import Control.Concurrent.STM
 
 atomLoop :: STM a -> IO ()
-atomLoop = forever . atomically
+atomLoop x = atomically x >> atomLoop x
 
 forkAtomLoop :: STM a -> IO ThreadId
 forkAtomLoop = forkIO . atomLoop
