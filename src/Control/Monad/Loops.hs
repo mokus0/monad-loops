@@ -70,22 +70,57 @@ unfoldrM f z = do
 concatM :: (Monad m) => [a -> m a] -> (a -> m a)
 concatM fs x = foldl (>>=) (return x) fs
 
-{-# SPECIALIZE anyM :: [a -> IO Bool] -> (a -> IO Bool) #-}
-{-# SPECIALIZE allM :: [a -> IO Bool] -> (a -> IO Bool) #-}
+{-# SPECIALIZE andM :: [IO Bool] -> IO Bool #-}
+{-# SPECIALIZE orM  :: [IO Bool] -> IO Bool #-}
+andM, orM :: (Monad m) => [m Bool] -> m Bool
+andM []         = return True
+andM (p:ps)     = do
+        q <- p
+        if q
+                then andM ps
+                else return False
 
-anyM, allM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
-anyM []     x = return False
-anyM (p:ps) x = do
+orM []          = return False
+orM (p:ps)      = do
+        q <- p
+        if q
+                then return True
+                else orM ps
+
+{-# SPECIALIZE anyPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
+{-# SPECIALIZE allPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
+
+anyPM, allPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
+anyPM []     x = return False
+anyPM (p:ps) x = do
         q <- p x
         if q
                 then return True
-                else anyM ps x
+                else anyPM ps x
 
-allM []     x = return True
-allM (p:ps) x = do
+allPM []     x = return True
+allPM (p:ps) x = do
         q <- p x
         if q
-                then allM ps x
+                then allPM ps x
+                else return False
+
+{-# SPECIALIZE anyM :: (a -> IO Bool) -> [a] -> IO Bool #-}
+{-# SPECIALIZE allM :: (a -> IO Bool) -> [a] -> IO Bool #-}
+
+anyM, allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+anyM p []       = return False
+anyM p (x:xs)   = do
+        q <- p x
+        if q
+                then return True
+                else anyM p xs
+
+allM p []       = return True
+allM p (x:xs)   = do
+        q <- p x
+        if q
+                then allM p xs
                 else return False
 
 dropWhileM, trimM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
