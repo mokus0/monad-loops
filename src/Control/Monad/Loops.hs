@@ -1,10 +1,23 @@
 {-
  -      ``Control/Monad/Loops''
- -      (c) 2008 Cook, J. MR  SSD, Inc.
  -}
 {-# LANGUAGE
         CPP
   #-}
+
+-- |A collection of loop operators for use in monads (mostly in stateful ones).
+-- 
+-- There is a general naming pattern for many of these:
+-- Functions with names ending in _ discard the results of the loop body
+-- as in the standard Prelude 'mapM' functions.
+-- 
+-- Functions with names ending in ' collect their results into 'MonadPlus'
+-- containers.  Note that any short-circuit effect that those types' 
+-- 'MonadPlus' instances may provide in a lazy context (such as the instance
+-- for 'Maybe') will _not_ cause execution to short-circuit in these loops.
+--
+-- Functions with names ending in neither of those will generally return
+-- just plain old lists.
 
 module Control.Monad.Loops
         ( module Control.Monad.Loops
@@ -18,26 +31,24 @@ import Control.Monad
 import Control.Exception
 import Control.Concurrent
 
+#ifndef base4
+#define SomeException Exception
+#endif
+
 #ifdef useSTM
 import Control.Monad.Loops.STM
 #endif
 
+-- possibly-useful addition? :
 -- concatMapM :: (Monad m, Traversable f, Monoid w) => (a -> m w) -> (f a) -> m w
 
-forkMapM_ :: (a -> IO ()) -> [a] -> IO [Maybe Exception]
-forkMapM_ f xs = do
-        mvars <- forM xs $ \x -> do
-                mvar <- newEmptyMVar
-                forkIO $ do
-                        result <- handle (return . Just) $ do
-                                f x
-                                return Nothing
-                        putMVar mvar result
-                return mvar
-        
-        mapM takeMVar mvars
+-- would also like to implement an "interleavable" version of forkMapM (probably
+-- using something other than a list in the return) that can effectively handle
+-- very large or even infinite input lists.
 
-forkMapM :: (a -> IO b) -> [a] -> IO [Either Exception b]
+-- |Like 'mapM', but run all the actions in parallel threads, collecting up
+-- the results and returning them all.  Does not return until all actions finish.
+forkMapM :: (a -> IO b) -> [a] -> IO [Either SomeException b]
 forkMapM f xs = do
         mvars <- forM xs $ \x -> do
                 mvar <- newEmptyMVar
@@ -50,59 +61,135 @@ forkMapM f xs = do
         
         mapM takeMVar mvars
 
-{-# SPECIALIZE while  :: Monad m => m Bool -> m a -> m [a] #-}
-{-# SPECIALIZE while  :: IO Bool -> IO a -> IO [a] #-}
-{-# SPECIALIZE while_ :: IO Bool -> IO a -> IO () #-}
+-- | like 'forkMapM' but without bothering to keep the return values
+forkMapM_ :: (a -> IO b) -> [a] -> IO [Maybe SomeException]
+forkMapM_ f xs = do
+        mvars <- forM xs $ \x -> do
+                mvar <- newEmptyMVar
+                forkIO $ do
+                        -- in base >=4, need to nail down the type of 'handle'
+                        let handleAny :: (SomeException -> IO a) -> IO a -> IO a
+                            handleAny = handle
+                        result <- handleAny (return . Just) $ do
+                                f x
+                                return Nothing
+                        putMVar mvar result
+                return mvar
+        
+        mapM takeMVar mvars
 
-while :: (Monad m, MonadPlus f) => m Bool -> m a -> m (f a)
-while p f = do
+-- | like 'forkMapM_' but not even bothering to track success or failure
+-- of the child threads.  Still waits for them all though.
+forkMapM__ :: (a -> IO b) -> [a] -> IO ()
+forkMapM__ f xs = do
+        mvars <- forM xs $ \x -> do
+                mvar <- newEmptyMVar
+                forkIO $ do
+                        -- in base >=4, need to nail down the type of 'handle'
+                        let handleAny :: (SomeException -> IO a) -> IO a -> IO a
+                            handleAny = handle
+                        handleAny (\e -> return ()) $ do
+                                f x
+                                return ()
+                        putMVar mvar ()
+                return mvar
+        
+        mapM_ takeMVar mvars
+
+{-# SPECIALIZE whileM  :: IO Bool -> IO a -> IO [a] #-}
+{-# SPECIALIZE whileM' :: Monad m => m Bool -> m a -> m [a] #-}
+{-# SPECIALIZE whileM' :: IO Bool -> IO a -> IO [a] #-}
+{-# SPECIALIZE whileM_ :: IO Bool -> IO a -> IO () #-}
+
+-- |Execute an action repeatedly as long as the given boolean expression
+-- returns True.  The condition is evaluated before the loop body.
+-- Collects the results into a list.
+whileM :: Monad m => m Bool -> m a -> m [a]
+whileM = whileM'
+
+-- |Execute an action repeatedly as long as the given boolean expression
+-- returns True. The condition is evaluated before the loop body.
+-- Collects the results into an arbitrary 'MonadPlus' value.
+whileM' :: (Monad m, MonadPlus f) => m Bool -> m a -> m (f a)
+whileM' p f = do
         x <- p
         if x
                 then do
                         x  <- f
-                        xs <- while p f
+                        xs <- whileM' p f
                         return (return x `mplus` xs)
                 else return mzero
 
-while_ :: (Monad m) => m Bool -> m a -> m ()
-while_ p f = do
+-- |Execute an action repeatedly as long as the given boolean expression
+-- returns True.  The condition is evaluated before the loop body.
+-- Discards results.
+whileM_ :: (Monad m) => m Bool -> m a -> m ()
+whileM_ p f = do
         x <- p
         if x
                 then do
                         f
-                        while_ p f
+                        whileM_ p f
                 else return ()
 
-{-# SPECIALIZE until  :: Monad m => m a -> m Bool -> m [a] #-}
-{-# SPECIALIZE until  :: IO a -> IO Bool -> IO [a] #-}
-{-# SPECIALIZE until_ :: IO a -> IO Bool -> IO () #-}
+{-# SPECIALIZE untilM  :: IO a -> IO Bool -> IO [a] #-}
+{-# SPECIALIZE untilM' :: Monad m => m a -> m Bool -> m [a] #-}
+{-# SPECIALIZE untilM' :: IO a -> IO Bool -> IO [a] #-}
+{-# SPECIALIZE untilM_ :: IO a -> IO Bool -> IO () #-}
 
-infixr 0 `until`
-infixr 0 `until_`
+infixr 0 `untilM`
+infixr 0 `untilM'`
+infixr 0 `untilM_`
 
-until :: (Monad m, MonadPlus f) => m a -> m Bool -> m (f a)
-f `until` p = do
+-- |Execute an action repeatedly until the condition expression returns True.
+-- The condition is evaluated after the loop body.  Collects results into a list.
+-- Parameters are arranged for infix usage.  eg. do {...} `untilM_` ...
+untilM :: Monad m => m a -> m Bool -> m [a]
+untilM = untilM'
+
+-- |Execute an action repeatedly until the condition expression returns True.
+-- The condition is evaluated after the loop body.  Collects results into a
+-- "MonadPlus" value.
+-- Parameters are arranged for infix usage.  eg. do {...} `untilM_` ...
+untilM' :: (Monad m, MonadPlus f) => m a -> m Bool -> m (f a)
+f `untilM'` p = do
         x  <- f
-        xs <- while p f
+        xs <- whileM' (liftM not p) f
         return (return x `mplus` xs)
 
-until_ :: (Monad m) => m a -> m Bool -> m ()
-f `until_` p = f >> while_ p f
+-- |Execute an action repeatedly until the condition expression returns True.
+-- The condition is evaluated after the loop body.  Discards results.
+-- Parameters are arranged for infix usage.  eg. do {...} `untilM_` ...
+untilM_ :: (Monad m) => m a -> m Bool -> m ()
+f `untilM_` p = f >> whileM_ (liftM not p) f
 
-{-# SPECIALIZE whileJust  :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
 {-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
+{-# SPECIALIZE whileJust' :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
 {-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
 
-whileJust :: (Monad m, MonadPlus f) => m (Maybe a) -> (a -> m b) -> m (f b)
-whileJust p f = do
+-- |As long as the supplied "Maybe" expression returns "Just _", the loop
+-- body will be called and passed the value contained in the 'Just'.  Results
+-- are collected into a list.
+whileJust :: Monad m => m (Maybe a) -> (a -> m b) -> m [b]
+whileJust = whileJust'
+
+-- |As long as the supplied "Maybe" expression returns "Just _", the loop
+-- body will be called and passed the value contained in the 'Just'.  Results
+-- are collected into an arbitrary MonadPlus container.
+whileJust' :: (Monad m, MonadPlus f) => m (Maybe a) -> (a -> m b) -> m (f b)
+whileJust' p f = do
         x <- p
         case x of
                 Nothing -> return mzero
                 Just x  -> do
                         x  <- f x
-                        xs <- whileJust p f
+                        xs <- whileJust' p f
                         return (return x `mplus` xs)
 
+-- |As long as the supplied "Maybe" expression returns "Just _", the loop
+-- body will be called and passed the value contained in the 'Just'.  Results
+-- are discarded.
 whileJust_ :: (Monad m) => m (Maybe a) -> (a -> m b) -> m ()
 whileJust_ p f = do
         x <- p
@@ -112,36 +199,60 @@ whileJust_ p f = do
                         f x
                         whileJust_ p f
 
-{-# SPECIALIZE unfoldM  :: (Monad m) => m (Maybe a) -> m [a] #-}
 {-# SPECIALIZE unfoldM  :: IO (Maybe a) -> IO [a] #-}
+{-# SPECIALIZE unfoldM' :: (Monad m) => m (Maybe a) -> m [a] #-}
+{-# SPECIALIZE unfoldM' :: IO (Maybe a) -> IO [a] #-}
 {-# SPECIALIZE unfoldM_ :: IO (Maybe a) -> IO () #-}
 
-unfoldM :: (Monad m, MonadPlus f) => m (Maybe a) -> m (f a)
-unfoldM m = whileJust m return
+-- |The supplied "Maybe" expression will be repeatedly called until it
+-- returns 'Nothing'.  All values returned are collected into a list.
+unfoldM :: (Monad m) => m (Maybe a) -> m [a]
+unfoldM = unfoldM'
 
+-- |The supplied "Maybe" expression will be repeatedly called until it
+-- returns 'Nothing'.  All values returned are collected into an arbitrary
+-- 'MonadPlus' thing.
+unfoldM' :: (Monad m, MonadPlus f) => m (Maybe a) -> m (f a)
+unfoldM' m = whileJust' m return
+
+-- |The supplied "Maybe" expression will be repeatedly called until it
+-- returns 'Nothing'.  All values returned are discarded.
 unfoldM_ :: (Monad m) => m (Maybe a) -> m ()
 unfoldM_ m = whileJust_ m return
 
-{-# SPECIALIZE unfoldrM :: (Monad m) => (a -> m (Maybe (b,a))) -> a -> m [b] #-}
-{-# SPECIALIZE unfoldrM :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
+{-# SPECIALIZE unfoldrM  :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
+{-# SPECIALIZE unfoldrM' :: (Monad m) => (a -> m (Maybe (b,a))) -> a -> m [b] #-}
+{-# SPECIALIZE unfoldrM' :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
 
-unfoldrM :: (Monad m, MonadPlus f) => (a -> m (Maybe (b,a))) -> a -> m (f b)
-unfoldrM f z = do
+-- |See 'Data.List.unfoldr'.  This is a monad-friendly version of that.
+unfoldrM :: (Monad m) => (a -> m (Maybe (b,a))) -> a -> m [b]
+unfoldrM = unfoldrM'
+
+-- |See 'Data.List.unfoldr'.  This is a monad-friendly version of that, with a
+-- twist.  Rather than returning a list, it returns any MonadPlus type of your
+-- choice.
+unfoldrM' :: (Monad m, MonadPlus f) => (a -> m (Maybe (b,a))) -> a -> m (f b)
+unfoldrM' f z = do
         x <- f z
         case x of
                 Nothing         -> return mzero
                 Just (x, z)     -> do
-                        xs <- unfoldrM f z
+                        xs <- unfoldrM' f z
                         return (return x `mplus` xs)
 
 {-# SPECIALIZE concatM :: [a -> IO a] -> (a -> IO a) #-}
 
+-- |Compose a list of monadic actions into one action.  Composes using
+-- (>=>) - that is, the output of each action is fed to the input of
+-- the one after it in the list.
 concatM :: (Monad m) => [a -> m a] -> (a -> m a)
-concatM fs x = foldl (>>=) (return x) fs
+concatM fs = foldr (>=>) return fs
 
 {-# SPECIALIZE andM :: [IO Bool] -> IO Bool #-}
 {-# SPECIALIZE orM  :: [IO Bool] -> IO Bool #-}
-andM, orM :: (Monad m) => [m Bool] -> m Bool
+
+-- |short-circuit 'and' for values of type Monad m => m Bool
+andM :: (Monad m) => [m Bool] -> m Bool
 andM []         = return True
 andM (p:ps)     = do
         q <- p
@@ -149,6 +260,8 @@ andM (p:ps)     = do
                 then andM ps
                 else return False
 
+-- |short-circuit 'or' for values of type Monad m => m Bool
+orM :: (Monad m) => [m Bool] -> m Bool
 orM []          = return False
 orM (p:ps)      = do
         q <- p
@@ -159,7 +272,10 @@ orM (p:ps)      = do
 {-# SPECIALIZE anyPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
 {-# SPECIALIZE allPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
 
-anyPM, allPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
+-- |short-circuit 'any' with a list of "monadic predicates".  Tests the
+-- value presented against each predicate in turn until one passes, then
+-- returns True without any further processing.  If none passes, returns False.
+anyPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
 anyPM []     x = return False
 anyPM (p:ps) x = do
         q <- p x
@@ -167,6 +283,10 @@ anyPM (p:ps) x = do
                 then return True
                 else anyPM ps x
 
+-- |short-circuit 'all' with a list of "monadic predicates".  Tests the value
+-- presented against each predicate in turn until one fails, then returns False.
+-- if none fail, returns True.
+allPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
 allPM []     x = return True
 allPM (p:ps) x = do
         q <- p x
@@ -177,7 +297,8 @@ allPM (p:ps) x = do
 {-# SPECIALIZE anyM :: (a -> IO Bool) -> [a] -> IO Bool #-}
 {-# SPECIALIZE allM :: (a -> IO Bool) -> [a] -> IO Bool #-}
 
-anyM, allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+-- |short-circuit 'any' with a "monadic predicate".
+anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM p []       = return False
 anyM p (x:xs)   = do
         q <- p x
@@ -185,6 +306,8 @@ anyM p (x:xs)   = do
                 then return True
                 else anyM p xs
 
+-- |short-circuit 'all' with a "monadic predicate".
+allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 allM p []       = return True
 allM p (x:xs)   = do
         q <- p x
@@ -192,7 +315,7 @@ allM p (x:xs)   = do
                 then allM p xs
                 else return False
 
-dropWhileM, trimM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
+dropWhileM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
 dropWhileM p []     = return []
 dropWhileM p (x:xs) = do
         q <- p x
@@ -200,11 +323,14 @@ dropWhileM p (x:xs) = do
                 then dropWhileM p xs
                 else return xs
 
+-- |like 'dropWhileM' but trims both ends of the list.
+trimM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
 trimM p xs = do
         xs <- dropWhileM p xs
         rxs <- dropWhileM p (reverse xs)
         return (reverse rxs)
 
+-- |return the first value from a list, if any, satisfying the given predicate.
 firstM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
 firstM p [] = return Nothing
 firstM p (x:xs) = do

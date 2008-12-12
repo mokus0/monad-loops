@@ -1,6 +1,6 @@
 name:                   monad-loops
-version:                0.2
-stability:              experimental
+version:                0.3
+stability:              provisional
 license:                BSD3
 license-file:           LICENSE
 
@@ -18,11 +18,18 @@ Flag useSTM
   Description:          Include instances for STM types
   Default:              True
 
+Flag base4
+  Description:          Build using base >= 4
+  Default:              True
 
 Library
   hs-source-dirs:       src
   exposed-modules:      Control.Monad.Loops
-  build-depends:        base
+  if flag(base4)
+    cpp-options:        -Dbase4
+    build-depends:      base >= 4
+  else
+    build-depends:      base < 4
 
   if flag(useSTM)
     build-depends:      stm
