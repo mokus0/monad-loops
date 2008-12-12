@@ -243,7 +243,7 @@ unfoldrM' f z = do
 {-# SPECIALIZE concatM :: [a -> IO a] -> (a -> IO a) #-}
 
 -- |Compose a list of monadic actions into one action.  Composes using
--- (>=>) - that is, the output of each action is fed to the input of
+-- ('>=>') - that is, the output of each action is fed to the input of
 -- the one after it in the list.
 concatM :: (Monad m) => [a -> m a] -> (a -> m a)
 concatM fs = foldr (>=>) return fs
@@ -272,7 +272,7 @@ orM (p:ps)      = do
 {-# SPECIALIZE anyPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
 {-# SPECIALIZE allPM :: [a -> IO Bool] -> (a -> IO Bool) #-}
 
--- |short-circuit 'any' with a list of "monadic predicates".  Tests the
+-- |short-circuit 'any' with a list of \"monadic predicates\".  Tests the
 -- value presented against each predicate in turn until one passes, then
 -- returns True without any further processing.  If none passes, returns False.
 anyPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
@@ -283,7 +283,7 @@ anyPM (p:ps) x = do
                 then return True
                 else anyPM ps x
 
--- |short-circuit 'all' with a list of "monadic predicates".  Tests the value
+-- |short-circuit 'all' with a list of \"monadic predicates\".  Tests the value
 -- presented against each predicate in turn until one fails, then returns False.
 -- if none fail, returns True.
 allPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
@@ -297,7 +297,7 @@ allPM (p:ps) x = do
 {-# SPECIALIZE anyM :: (a -> IO Bool) -> [a] -> IO Bool #-}
 {-# SPECIALIZE allM :: (a -> IO Bool) -> [a] -> IO Bool #-}
 
--- |short-circuit 'any' with a "monadic predicate".
+-- |short-circuit 'any' with a \"monadic predicate\".
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM p []       = return False
 anyM p (x:xs)   = do
@@ -306,7 +306,7 @@ anyM p (x:xs)   = do
                 then return True
                 else anyM p xs
 
--- |short-circuit 'all' with a "monadic predicate".
+-- |short-circuit 'all' with a \"monadic predicate\".
 allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 allM p []       = return True
 allM p (x:xs)   = do

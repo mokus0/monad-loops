@@ -8,6 +8,8 @@ module Control.Monad.Loops.STM where
 import Control.Concurrent
 import Control.Concurrent.STM
 
+import Control.Monad (forever) -- for the benefit of haddock
+
 -- |'Control.Monad.forever' and 'Control.Concurrent.STM.atomically' rolled
 -- into one.
 atomLoop :: STM a -> IO ()
