@@ -9,6 +9,7 @@ build-type:             Simple
 
 author:                 James Cook <mokus@deepbondi.net>
 maintainer:             James Cook <mokus@deepbondi.net>
+homepage:               http://code.haskell.org/~mokus/monad-loops
 
 category:               Control
 synopsis:               Monadic loops
