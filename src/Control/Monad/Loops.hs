@@ -132,6 +132,13 @@ whileM_ p f = do
                         whileM_ p f
                 else return ()
 
+iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
+iterateWhile p x = do
+    y <- x
+    if p y
+        then iterateWhile p x
+        else return y
+
 {-# SPECIALIZE untilM  :: IO a -> IO Bool -> IO [a] #-}
 {-# SPECIALIZE untilM' :: Monad m => m a -> m Bool -> m [a] #-}
 {-# SPECIALIZE untilM' :: IO a -> IO Bool -> IO [a] #-}
@@ -167,6 +174,13 @@ f `untilM_` p = f >> whileM_ (liftM not p) f
 {-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
 {-# SPECIALIZE whileJust' :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
 {-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
+
+iterateUntil :: Monad m => (a -> Bool) -> m a -> m a
+iterateUntil p x = do
+    y <- x
+    if p y
+        then return y
+        else iterateUntil p x
 
 -- |As long as the supplied "Maybe" expression returns "Just _", the loop
 -- body will be called and passed the value contained in the 'Just'.  Results

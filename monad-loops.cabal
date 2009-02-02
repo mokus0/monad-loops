@@ -1,5 +1,5 @@
 name:                   monad-loops
-version:                0.3
+version:                0.3.0.1
 stability:              provisional
 license:                BSD3
 license-file:           LICENSE
