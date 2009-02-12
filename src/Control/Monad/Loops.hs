@@ -132,6 +132,8 @@ whileM_ p f = do
                         whileM_ p f
                 else return ()
 
+-- |Execute an action repeatedly until its result fails to satisfy a predicate,
+-- and return that result (discarding all others).
 iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
 iterateWhile p x = do
     y <- x
@@ -175,6 +177,8 @@ f `untilM_` p = f >> whileM_ (liftM not p) f
 {-# SPECIALIZE whileJust' :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
 {-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
 
+-- |Execute an action repeatedly until its result satisfies a predicate,
+-- and return that result (discarding all others).
 iterateUntil :: Monad m => (a -> Bool) -> m a -> m a
 iterateUntil p x = do
     y <- x
