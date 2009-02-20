@@ -196,26 +196,28 @@ whileJust = whileJust'
 -- body will be called and passed the value contained in the 'Just'.  Results
 -- are collected into an arbitrary MonadPlus container.
 whileJust' :: (Monad m, MonadPlus f) => m (Maybe a) -> (a -> m b) -> m (f b)
-whileJust' p f = do
-        x <- p
-        case x of
+whileJust' p f = go
+    where go = do
+            x <- p
+            case x of
                 Nothing -> return mzero
                 Just x  -> do
                         x  <- f x
-                        xs <- whileJust' p f
+                        xs <- go
                         return (return x `mplus` xs)
 
 -- |As long as the supplied "Maybe" expression returns "Just _", the loop
 -- body will be called and passed the value contained in the 'Just'.  Results
 -- are discarded.
 whileJust_ :: (Monad m) => m (Maybe a) -> (a -> m b) -> m ()
-whileJust_ p f = do
-        x <- p
-        case x of
+whileJust_ p f = go
+    where go = do
+            x <- p
+            case x of
                 Nothing -> return ()
                 Just x  -> do
                         f x
-                        whileJust_ p f
+                        go
 
 {-# SPECIALIZE unfoldM  :: IO (Maybe a) -> IO [a] #-}
 {-# SPECIALIZE unfoldM' :: (Monad m) => m (Maybe a) -> m [a] #-}
