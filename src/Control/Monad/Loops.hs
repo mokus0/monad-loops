@@ -339,7 +339,7 @@ dropWhileM p (x:xs) = do
         q <- p x
         if q
                 then dropWhileM p xs
-                else return xs
+                else return (x:xs)
 
 -- |like 'dropWhileM' but trims both ends of the list.
 trimM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
