@@ -13,7 +13,8 @@ import Control.Monad (forever) -- for the benefit of haddock
 -- |'Control.Monad.forever' and 'Control.Concurrent.STM.atomically' rolled
 -- into one.
 atomLoop :: STM a -> IO ()
-atomLoop x = atomically x >> atomLoop x
+atomLoop x = go
+    where go = atomically x >> go
 
 -- |'atomLoop' with a 'forkIO'
 forkAtomLoop :: STM a -> IO ThreadId
