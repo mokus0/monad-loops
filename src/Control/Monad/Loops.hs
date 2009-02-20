@@ -111,12 +111,13 @@ whileM = whileM'
 -- returns True. The condition is evaluated before the loop body.
 -- Collects the results into an arbitrary 'MonadPlus' value.
 whileM' :: (Monad m, MonadPlus f) => m Bool -> m a -> m (f a)
-whileM' p f = do
-        x <- p
-        if x
+whileM' p f = go
+    where go = do
+            x <- p
+            if x
                 then do
                         x  <- f
-                        xs <- whileM' p f
+                        xs <- go
                         return (return x `mplus` xs)
                 else return mzero
 
@@ -124,22 +125,22 @@ whileM' p f = do
 -- returns True.  The condition is evaluated before the loop body.
 -- Discards results.
 whileM_ :: (Monad m) => m Bool -> m a -> m ()
-whileM_ p f = do
-        x <- p
-        if x
-                then do
-                        f
-                        whileM_ p f
+whileM_ p f = go
+    where go = do
+            x <- p
+            if x
+                then f >> go
                 else return ()
 
 -- |Execute an action repeatedly until its result fails to satisfy a predicate,
 -- and return that result (discarding all others).
 iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
-iterateWhile p x = do
-    y <- x
-    if p y
-        then iterateWhile p x
-        else return y
+iterateWhile p x = go
+    where go = do
+                y <- x
+                if p y
+                    then go
+                    else return y
 
 {-# SPECIALIZE untilM  :: IO a -> IO Bool -> IO [a] #-}
 {-# SPECIALIZE untilM' :: Monad m => m a -> m Bool -> m [a] #-}
@@ -180,11 +181,12 @@ f `untilM_` p = f >> whileM_ (liftM not p) f
 -- |Execute an action repeatedly until its result satisfies a predicate,
 -- and return that result (discarding all others).
 iterateUntil :: Monad m => (a -> Bool) -> m a -> m a
-iterateUntil p x = do
-    y <- x
-    if p y
-        then return y
-        else iterateUntil p x
+iterateUntil p x = go
+    where go = do
+            y <- x
+            if p y
+                then return y
+                else go
 
 -- |As long as the supplied "Maybe" expression returns "Just _", the loop
 -- body will be called and passed the value contained in the 'Just'.  Results
@@ -252,12 +254,13 @@ unfoldrM = unfoldrM'
 -- twist.  Rather than returning a list, it returns any MonadPlus type of your
 -- choice.
 unfoldrM' :: (Monad m, MonadPlus f) => (a -> m (Maybe (b,a))) -> a -> m (f b)
-unfoldrM' f z = do
-        x <- f z
-        case x of
+unfoldrM' f z = go
+    where go = do
+            x <- f z
+            case x of
                 Nothing         -> return mzero
                 Just (x, z)     -> do
-                        xs <- unfoldrM' f z
+                        xs <- go
                         return (return x `mplus` xs)
 
 {-# SPECIALIZE concatM :: [a -> IO a] -> (a -> IO a) #-}
