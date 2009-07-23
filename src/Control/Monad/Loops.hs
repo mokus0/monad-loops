@@ -221,6 +221,17 @@ whileJust_ p f = go
                         f x
                         go
 
+-- |Run the supplied "Maybe" computation repeatedly until it returns a
+-- value.  Returns that value.
+untilJust :: Monad m => m (Maybe a) -> m a
+untilJust m = go
+    where
+        go = do
+            x <- m
+            case x of
+                Nothing -> go
+                Just x  -> return x
+
 {-# SPECIALIZE unfoldM  :: IO (Maybe a) -> IO [a] #-}
 {-# SPECIALIZE unfoldM' :: (Monad m) => m (Maybe a) -> m [a] #-}
 {-# SPECIALIZE unfoldM' :: IO (Maybe a) -> IO [a] #-}

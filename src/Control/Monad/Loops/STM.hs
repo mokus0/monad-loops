@@ -9,6 +9,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 
 import Control.Monad (forever) -- for the benefit of haddock
+import Data.Maybe
 
 -- |'Control.Monad.forever' and 'Control.Concurrent.STM.atomically' rolled
 -- into one.
@@ -32,6 +33,11 @@ waitFor p events = do
 -- |'Control.Concurrent.STM.retry' until the given value is True.
 waitForTrue :: STM Bool -> STM ()
 waitForTrue p = waitFor id p >> return ()
+
+-- |'Control.Concurrent.STM.retry' until the given value is 'Just' _, returning
+-- the contained value.
+waitForJust :: STM (Maybe a) -> STM a
+waitForJust m = fmap fromJust (waitFor isJust m)
 
 -- |'waitFor' a value satisfying a condition to come out of a
 -- 'Control.Concurrent.STM.TChan', reading and discarding everything else.
