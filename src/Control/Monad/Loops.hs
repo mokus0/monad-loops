@@ -253,6 +253,30 @@ unfoldM' m = whileJust' m return
 unfoldM_ :: (Monad m) => m (Maybe a) -> m ()
 unfoldM_ m = whileJust_ m return
 
+-- |Repeatedly evaluates the second argument until the value satisfies
+-- the given predicate, and returns a list of all values that satisfied the
+-- predicate.  Discards the final one (which failed the predicate).
+unfoldWhileM :: Monad m => (a -> Bool) -> m a -> m [a]
+unfoldWhileM p m = loop id
+    where
+        loop f = do
+            x <- m
+            if p x
+                then loop (f . (x:))
+                else return (f [])
+
+-- |Repeatedly evaluates the second argument until the value satisfies
+-- the given predicate, and returns a 'MonadPlus' collection of all values
+-- that satisfied the predicate.  Discards the final one (which failed the predicate).
+unfoldWhileM' :: (Monad m, MonadPlus f) => (a -> Bool) -> m a -> m (f a)
+unfoldWhileM' p m = loop mzero
+    where
+        loop xs = do
+            x <- m
+            if p x
+                then loop (xs `mplus` return x)
+                else return xs
+
 {-# SPECIALIZE unfoldrM  :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
 {-# SPECIALIZE unfoldrM' :: (Monad m) => (a -> m (Maybe (b,a))) -> a -> m [b] #-}
 {-# SPECIALIZE unfoldrM' :: (a -> IO (Maybe (b,a))) -> a -> IO [b] #-}
