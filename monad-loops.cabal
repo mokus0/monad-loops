@@ -1,19 +1,27 @@
 name:                   monad-loops
-version:                0.3.1.0
+version:                0.3.2.0
 stability:              provisional
 license:                BSD3
 license-file:           LICENSE
 
-cabal-version:          >= 1.2
+cabal-version:          >= 1.6
 build-type:             Simple
 
 author:                 James Cook <mokus@deepbondi.net>
 maintainer:             James Cook <mokus@deepbondi.net>
-homepage:               http://code.haskell.org/~mokus/monad-loops
+homepage:               https://github.com/mokus0/monad-loops
 
 category:               Control
 synopsis:               Monadic loops
-description:            Some useful control operators for looping
+description:            Some useful control operators for looping.
+                        .
+                        New in 0.3.2.0: various functions for traversing lists and 
+                        computing minima/maxima using arbitrary procedures to compare
+                        or score the elements.
+
+source-repository head
+  type: git
+  location: git://github.com/mokus0/monad-loops.git
 
 Flag useSTM
   Description:          Include instances for STM types
@@ -28,9 +36,9 @@ Library
   exposed-modules:      Control.Monad.Loops
   if flag(base4)
     cpp-options:        -Dbase4
-    build-depends:      base >= 4
+    build-depends:      base >= 4 && <5
   else
-    build-depends:      base < 4
+    build-depends:      base >= 2 && < 4
 
   if flag(useSTM)
     build-depends:      stm

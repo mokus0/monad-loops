@@ -39,6 +39,8 @@ import Control.Concurrent
 import Control.Monad.Loops.STM
 #endif
 
+import Data.Maybe (listToMaybe)
+
 -- possibly-useful addition? :
 -- concatMapM :: (Monad m, Traversable f, Monoid w) => (a -> m w) -> (f a) -> m w
 
@@ -396,3 +398,46 @@ firstM p (x:xs) = do
         if q
                 then return (Just x)
                 else firstM p xs
+
+{-# INLINE minimaOnByM #-}
+minimaOnByM :: Monad m => (a -> m b) -> (b -> b -> m Ordering) -> [a] -> m [a]
+minimaOnByM _   _ []     = return []
+minimaOnByM f cmp (x:xs) = do
+    fx <- f x
+    loop (x:) fx xs
+        where   loop ms _ []           = return (ms [])
+                loop ms fm (x:xs) = do
+                    fx <- f x
+                    ord <- cmp fm fx
+                    case ord of
+                        LT -> loop ms          fm xs
+                        EQ -> loop (ms . (x:)) fm xs
+                        GT -> loop (x:)        fx xs
+
+{-# INLINE maximaOnByM #-}
+maximaOnByM :: Monad m => (a -> m b) -> (b -> b -> m Ordering) -> [a] -> m [a]
+maximaOnByM f = minimaOnByM f . flip
+
+minimaByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m [a]
+minimaByM = minimaOnByM return
+
+maximaByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m [a]
+maximaByM = maximaOnByM return
+
+minimaOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
+minimaOnM f = minimaOnByM f (\x y -> return (compare x y))
+
+maximaOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
+maximaOnM f = maximaOnByM f (\x y -> return (compare x y))
+
+minimumByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m (Maybe a)
+minimumByM cmp = liftM listToMaybe . minimaByM cmp
+
+maximumByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m (Maybe a)
+maximumByM cmp = liftM listToMaybe . maximaByM cmp
+
+minimumOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m (Maybe a)
+minimumOnM f = liftM listToMaybe . minimaOnM f
+
+maximumOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m (Maybe a)
+maximumOnM f = liftM listToMaybe . maximaOnM f
