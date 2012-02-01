@@ -403,11 +403,11 @@ firstM p (x:xs) = do
 minimaOnByM :: Monad m => (a -> m b) -> (b -> b -> m Ordering) -> [a] -> m [a]
 minimaOnByM _   _ []     = return []
 minimaOnByM f cmp (x:xs) = do
-    fx <- f x
+    fx<- f x
     loop (x:) fx xs
         where   loop ms _ []           = return (ms [])
                 loop ms fm (x:xs) = do
-                    fx <- f x
+                    fx  <- f x
                     ord <- cmp fm fx
                     case ord of
                         LT -> loop ms          fm xs
@@ -430,14 +430,33 @@ minimaOnM f = minimaOnByM f (\x y -> return (compare x y))
 maximaOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
 maximaOnM f = maximaOnByM f (\x y -> return (compare x y))
 
+{-# INLINE minimumOnByM #-}
+minimumOnByM :: Monad m => (a -> m b) -> (b -> b -> m Ordering) -> [a] -> m (Maybe a)
+minimumOnByM _   _ []     = return Nothing
+minimumOnByM f cmp (x:xs) = do
+    fx <- f x
+    loop x fx xs
+        where   loop m _ []           = return (Just m)
+                loop m fm (x:xs) = do
+                    fx  <- f x
+                    ord <- cmp fm fx
+                    case ord of
+                        LT -> loop m fm xs
+                        EQ -> loop m fm xs
+                        GT -> loop x fx xs
+
+{-# INLINE maximumOnByM #-}
+maximumOnByM :: Monad m => (a -> m b) -> (b -> b -> m Ordering) -> [a] -> m (Maybe a)
+maximumOnByM f = minimumOnByM f . flip
+
 minimumByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m (Maybe a)
-minimumByM cmp = liftM listToMaybe . minimaByM cmp
+minimumByM = minimumOnByM return
 
 maximumByM :: Monad m => (a -> a -> m Ordering) -> [a] -> m (Maybe a)
-maximumByM cmp = liftM listToMaybe . maximaByM cmp
+maximumByM = maximumOnByM return
 
 minimumOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m (Maybe a)
-minimumOnM f = liftM listToMaybe . minimaOnM f
+minimumOnM f = minimumOnByM f (\x y -> return (compare x y))
 
 maximumOnM :: (Monad m, Ord b) => (a -> m b) -> [a] -> m (Maybe a)
-maximumOnM f = liftM listToMaybe . maximaOnM f
+maximumOnM f = maximumOnByM f (\x y -> return (compare x y))
