@@ -144,10 +144,12 @@ iterateWhile p x = go
                     then go
                     else return y
 
+{-# SPECIALIZE iterateM_ :: (a -> IO a) -> a -> IO b #-}
 -- |Execute an action forever, feeding the result of each execution as the
 -- input to the next.
 iterateM_ :: Monad m => (a -> m a) -> a -> m b
-iterateM_ f a = f a >>= iterateM_ f
+iterateM_ f = g
+    where g x = f x >>= g
 
 {-# SPECIALIZE untilM  :: IO a -> IO Bool -> IO [a] #-}
 {-# SPECIALIZE untilM' :: Monad m => m a -> m Bool -> m [a] #-}
