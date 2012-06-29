@@ -1,9 +1,4 @@
-{-
- -      ``Control/Monad/Loops''
- -}
-{-# LANGUAGE
-        CPP
-  #-}
+{-# LANGUAGE CPP #-}
 
 -- |A collection of loop operators for use in monads (mostly in stateful ones).
 -- 
@@ -21,9 +16,6 @@
 
 module Control.Monad.Loops
         ( module Control.Monad.Loops
-#ifdef useSTM
-        , module Control.Monad.Loops.STM
-#endif
         ) where
 
 import Control.Monad
@@ -33,10 +25,6 @@ import Control.Concurrent
 
 #ifndef base4
 #define SomeException Exception
-#endif
-
-#ifdef useSTM
-import Control.Monad.Loops.STM
 #endif
 
 import Data.Maybe (listToMaybe)
