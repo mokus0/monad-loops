@@ -286,13 +286,13 @@ unfoldrM = unfoldrM'
 -- twist.  Rather than returning a list, it returns any MonadPlus type of your
 -- choice.
 unfoldrM' :: (Monad m, MonadPlus f) => (a -> m (Maybe (b,a))) -> a -> m (f b)
-unfoldrM' f z = go
-    where go = do
+unfoldrM' f = go
+    where go z = do
             x <- f z
             case x of
                 Nothing         -> return mzero
-                Just (x, z)     -> do
-                        xs <- go
+                Just (x, z')    -> do
+                        xs <- go z'
                         return (return x `mplus` xs)
 
 {-# SPECIALIZE concatM :: [a -> IO a] -> (a -> IO a) #-}
