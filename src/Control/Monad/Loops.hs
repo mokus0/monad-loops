@@ -125,12 +125,7 @@ whileM_ p f = go
 -- |Execute an action repeatedly until its result fails to satisfy a predicate,
 -- and return that result (discarding all others).
 iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
-iterateWhile p x = go
-    where go = do
-                y <- x
-                if p y
-                    then go
-                    else return y
+iterateWhile p = iterateUntil (not . p)
 
 {-# SPECIALIZE iterateM_ :: (a -> IO a) -> a -> IO b #-}
 -- |Execute an action forever, feeding the result of each execution as the
