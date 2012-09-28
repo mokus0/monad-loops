@@ -179,15 +179,15 @@ iterateUntilM p f v
     | p v       = return v
     | otherwise = f v >>= iterateUntilM p f
 
-{-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
-{-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
-{-# SPECIALIZE whileJust' :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
-{-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
-
 -- |Execute an action repeatedly until its result satisfies a predicate,
 -- and return that result (discarding all others).
 iterateUntil :: Monad m => (a -> Bool) -> m a -> m a
 iterateUntil p x = x >>= iterateUntilM p (const x)
+
+{-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
+{-# SPECIALIZE whileJust' :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE whileJust_ :: IO (Maybe a) -> (a -> IO b) -> IO () #-}
 
 -- |As long as the supplied "Maybe" expression returns "Just _", the loop
 -- body will be called and passed the value contained in the 'Just'.  Results
