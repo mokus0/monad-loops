@@ -147,6 +147,7 @@ iterateM_ f = g
 infixr 0 `untilM`
 infixr 0 `untilM'`
 infixr 0 `untilM_`
+infixr 0 `iterateUntilM`
 
 -- |Execute an action repeatedly until the condition expression returns True.
 -- The condition is evaluated after the loop body.  Collects results into a list.
@@ -169,6 +170,16 @@ f `untilM'` p = do
 -- Parameters are arranged for infix usage.  eg. do {...} `untilM_` ...
 untilM_ :: (Monad m) => m a -> m Bool -> m ()
 f `untilM_` p = f >> whileM_ (liftM not p) f
+
+
+-- | Analogue of @('Prelude.until')@
+-- Yields the result of applying f until p holds.
+iterateUntilM :: (Monad m) => (a -> Bool) -> (a -> m a) -> a -> m a
+iterateUntilM p f v = do
+  result <- f v
+  if p result
+    then return result
+    else iterateUntilM p f result
 
 {-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
 {-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
