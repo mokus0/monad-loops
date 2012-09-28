@@ -175,11 +175,9 @@ f `untilM_` p = f >> whileM_ (liftM not p) f
 -- | Analogue of @('Prelude.until')@
 -- Yields the result of applying f until p holds.
 iterateUntilM :: (Monad m) => (a -> Bool) -> (a -> m a) -> a -> m a
-iterateUntilM p f v = do
-  result <- f v
-  if p result
-    then return result
-    else iterateUntilM p f result
+iterateUntilM p f v 
+    | p v       = return v
+    | otherwise = f v >>= iterateUntilM p f
 
 {-# SPECIALIZE whileJust  :: IO (Maybe a) -> (a -> IO b) -> IO [b] #-}
 {-# SPECIALIZE whileJust' :: Monad m => m (Maybe a) -> (a -> m b) -> m [b] #-}
@@ -189,12 +187,7 @@ iterateUntilM p f v = do
 -- |Execute an action repeatedly until its result satisfies a predicate,
 -- and return that result (discarding all others).
 iterateUntil :: Monad m => (a -> Bool) -> m a -> m a
-iterateUntil p x = go
-    where go = do
-            y <- x
-            if p y
-                then return y
-                else go
+iterateUntil p x = x >>= iterateUntilM p (const x)
 
 -- |As long as the supplied "Maybe" expression returns "Just _", the loop
 -- body will be called and passed the value contained in the 'Just'.  Results
