@@ -27,8 +27,6 @@ import Control.Concurrent
 #define SomeException Exception
 #endif
 
-import Data.Maybe (listToMaybe)
-
 -- possibly-useful addition? :
 -- concatMapM :: (Monad m, Traversable f, Monoid w) => (a -> m w) -> (f a) -> m w
 
@@ -78,7 +76,7 @@ forkMapM__ f xs = do
                         -- in base >=4, need to nail down the type of 'handle'
                         let handleAny :: (SomeException -> IO a) -> IO a -> IO a
                             handleAny = handle
-                        handleAny (\e -> return ()) $ do
+                        handleAny (\_ -> return ()) $ do
                                 f x
                                 return ()
                         putMVar mvar ()
@@ -330,7 +328,7 @@ orM (p:ps)      = do
 -- value presented against each predicate in turn until one passes, then
 -- returns True without any further processing.  If none passes, returns False.
 anyPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
-anyPM []     x = return False
+anyPM []     _ = return False
 anyPM (p:ps) x = do
         q <- p x
         if q
@@ -341,7 +339,7 @@ anyPM (p:ps) x = do
 -- presented against each predicate in turn until one fails, then returns False.
 -- if none fail, returns True.
 allPM :: (Monad m) => [a -> m Bool] -> (a -> m Bool)
-allPM []     x = return True
+allPM []     _ = return True
 allPM (p:ps) x = do
         q <- p x
         if q
@@ -353,7 +351,7 @@ allPM (p:ps) x = do
 
 -- |short-circuit 'any' with a \"monadic predicate\".
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
-anyM p []       = return False
+anyM _ []       = return False
 anyM p (x:xs)   = do
         q <- p x
         if q
@@ -362,7 +360,7 @@ anyM p (x:xs)   = do
 
 -- |short-circuit 'all' with a \"monadic predicate\".
 allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
-allM p []       = return True
+allM _ []       = return True
 allM p (x:xs)   = do
         q <- p x
         if q
@@ -370,7 +368,7 @@ allM p (x:xs)   = do
                 else return False
 
 dropWhileM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
-dropWhileM p []     = return []
+dropWhileM _ []     = return []
 dropWhileM p (x:xs) = do
         q <- p x
         if q
@@ -386,7 +384,7 @@ trimM p xs = do
 
 -- |return the first value from a list, if any, satisfying the given predicate.
 firstM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
-firstM p [] = return Nothing
+firstM _ [] = return Nothing
 firstM p (x:xs) = do
         q <- p x
         if q

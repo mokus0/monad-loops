@@ -31,6 +31,7 @@ Flag base4
 
 Library
   hs-source-dirs:       src
+  ghc-options:          -Wall -fno-warn-unused-do-bind -fno-warn-name-shadowing
   exposed-modules:      Control.Monad.Loops
   if flag(base4)
     cpp-options:        -Dbase4
