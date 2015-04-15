@@ -3,7 +3,7 @@ version:                0.4.2.1
 stability:              provisional
 license:                PublicDomain
 
-cabal-version:          >= 1.6
+cabal-version:          >= 1.8
 build-type:             Simple
 
 author:                 James Cook <mokus@deepbondi.net>
@@ -36,6 +36,15 @@ Library
   exposed-modules:      Control.Monad.Loops
   if flag(base4)
     cpp-options:        -Dbase4
-    build-depends:      base >= 4 && <5
+    build-depends:      base >= 4 && < 5
   else
     build-depends:      base >= 2 && < 4
+
+Test-Suite test-monad-loops
+    type:       exitcode-stdio-1.0
+    main-is:    Tests/test-monad-loops.hs
+    if flag(base4)
+      cpp-options:        -Dbase4
+      build-depends:      base >= 4 && < 5, tasty, tasty-hunit, monad-loops
+    else
+      build-depends:      base >= 2 && < 4, tasty, tasty-hunit, monad-loops
