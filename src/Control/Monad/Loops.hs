@@ -367,6 +367,16 @@ allM p (x:xs)   = do
                 then allM p xs
                 else return False
 
+-- | Monadic 'takeWhile'.
+takeWhileM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
+takeWhileM _ []     = return []
+takeWhileM p (x:xs) = do
+        q <- p x
+        if q
+                then (takeWhileM p xs) >>= (return . (:) x)
+                else return []
+
+-- | Monadic 'dropWhile'.
 dropWhileM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
 dropWhileM _ []     = return []
 dropWhileM p (x:xs) = do
