@@ -132,6 +132,12 @@ iterateM_ :: Monad m => (a -> m a) -> a -> m b
 iterateM_ f = g
     where g x = f x >>= g
 
+{-# SPECIALIZE takeIterateM :: Int -> (a -> IO a) -> a -> IO a #-}
+-- |Like 'iterateM_', but only executes the action n times.
+takeIterateM :: Monad m => Int -> (a -> m a) -> a -> m a
+takeIterateM 0 _ a = return a
+takeIterateM n f a = f a >>= takeIterateM (n - 1) f
+
 {-# SPECIALIZE untilM  :: IO a -> IO Bool -> IO [a] #-}
 {-# SPECIALIZE untilM' :: Monad m => m a -> m Bool -> m [a] #-}
 {-# SPECIALIZE untilM' :: IO a -> IO Bool -> IO [a] #-}
