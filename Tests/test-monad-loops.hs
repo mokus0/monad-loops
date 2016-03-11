@@ -32,6 +32,20 @@ testTakeWhileMEdgeCase3 = do
     let expected = takeWhile  (const undefined) emptyList
     actual @?= expected
 
+testTakeIterateM :: Assertion
+testTakeIterateM = do
+  let n = 3 :: Int
+  actual <- takeIterateM n (return . (+ 1)) 0
+  expected <- takeIterateM 1 (return . id) n
+  actual @?= expected
+
+testTakeIterateMEdgeCase1 :: Assertion
+testTakeIterateMEdgeCase1 = do
+  let n = 0 :: Int
+  actual <- takeIterateM n (return . (+ 1)) 0
+  expected <- return n
+  actual @?= expected
+
 tests :: TestTree
 tests = testGroup "unit tests"
     [ testCase
@@ -46,7 +60,14 @@ tests = testGroup "unit tests"
     , testCase
         "Testing `takeWhileM (edge case 3)`"
         testTakeWhileMEdgeCase3
+    , testCase
+        "Testing `takeIterateM`"
+        testTakeIterateM
+    , testCase
+        "Testing `takeIterateM` (edge case 1)"
+        testTakeIterateMEdgeCase1
     ]
+
 
 main :: IO ()
 main = defaultMain tests
