@@ -385,6 +385,17 @@ dropWhileM p (x:xs) = do
                 then dropWhileM p xs
                 else return (x:xs)
 
+-- | Monad 'span'.
+spanM :: (Monad m) => (a -> m Bool) -> [a] -> m ([a], [a])
+spanM _ [] = return ([], [])
+spanM p xs@(x:xs') = do
+        q <- p x
+        if q
+                then do
+                  (ys, zs) <- spanM p xs'
+                  return (x:ys, zs)
+                else return ([], xs)
+
 -- |like 'dropWhileM' but trims both ends of the list.
 trimM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
 trimM p xs = do
