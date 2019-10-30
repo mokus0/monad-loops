@@ -226,6 +226,117 @@ untilJust m = go
                 Nothing -> go
                 Just x  -> return x
 
+{-# SPECIALIZE forUntil  :: IO a -> (a -> Bool) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE forUntil' :: IO a -> (a -> Bool) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE forUntil' :: Monad m => m a -> (a -> Bool) -> (a -> m b) -> m [b] #-}
+{-# SPECIALIZE forUntil_ :: IO a -> (a -> Bool) -> (a -> IO b) -> IO () #-}
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value satisfying the terminating condition. All values returned by the
+-- consumer are collected into a list.
+
+forUntil :: Monad m =>
+    m a  -- ^ Producer
+    -> (a -> Bool) -- ^ Terminating condition
+    -> (a -> m b) -- ^ Consumer
+    -> m [b]
+forUntil = forUntil'
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value satisfying the terminating condition. All values returned by the
+-- consumer are collected into an arbitrary 'MonadPlus' thing.
+forUntil' :: (Monad m, MonadPlus f) =>
+    m a -- ^ Producer
+    -> (a -> Bool) -- ^ Terminating condition
+    -> (a -> m b) -- ^ Consumer
+    -> m (f b)
+forUntil' get end f = loop mzero
+  where
+    loop bs =
+      do
+        a <- get
+        case (end a) of
+            True -> return bs
+            False ->
+              do
+                b <- f a
+                loop (bs `mplus` return b)
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value satisfying the terminating condition. All results are discarded.
+forUntil_ :: Monad m =>
+    m a  -- ^ Producer
+    -> (a -> Bool) -- ^ Terminating condition
+    -> (a -> m b) -- ^ Consumer
+    -> m ()
+forUntil_ get end f = loop
+  where
+    loop =
+      do
+        a <- get
+        case (end a) of
+            True -> return ()
+            False ->
+              do
+                _ <- f a
+                loop
+
+{-# SPECIALIZE forWhile  :: IO a -> (a -> Bool) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE forWhile' :: IO a -> (a -> Bool) -> (a -> IO b) -> IO [b] #-}
+{-# SPECIALIZE forWhile' :: Monad m => m a -> (a -> Bool) -> (a -> m b) -> m [b] #-}
+{-# SPECIALIZE forWhile_ :: IO a -> (a -> Bool) -> (a -> IO b) -> IO () #-}
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value that does not satisfy the continuing condition. All values returned
+-- by the consumer are collected into a list.
+
+forWhile :: Monad m =>
+    m a  -- ^ Producer
+    -> (a -> Bool) -- ^ Continuing condition
+    -> (a -> m b) -- ^ Consumer
+    -> m [b]
+forWhile = forWhile'
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value that does not satisfy the continuing condition. All values returned
+-- by the consumer are collected into an arbitrary 'MonadPlus' thing.
+forWhile' :: (Monad m, MonadPlus f) =>
+    m a -- ^ Producer
+    -> (a -> Bool) -- ^ Continuing condition
+    -> (a -> m b) -- ^ Consumer
+    -> m (f b)
+forWhile' get continue f = loop mzero
+  where
+    loop bs =
+      do
+        a <- get
+        case (continue a) of
+            False -> return bs
+            True ->
+              do
+                b <- f a
+                loop (bs `mplus` return b)
+
+-- |Repeatedly feed results from producer to consumer until the producer returns
+-- a value that does not satisfy the continuing condition. All results are
+-- discarded.
+forWhile_ :: Monad m =>
+    m a  -- ^ Producer
+    -> (a -> Bool) -- ^ Continuing condition
+    -> (a -> m b) -- ^ Consumer
+    -> m ()
+forWhile_ get continue f = loop
+  where
+    loop =
+      do
+        a <- get
+        case (continue a) of
+            False -> return ()
+            True ->
+              do
+                _ <- f a
+                loop
+
 {-# SPECIALIZE unfoldM  :: IO (Maybe a) -> IO [a] #-}
 {-# SPECIALIZE unfoldM' :: (Monad m) => m (Maybe a) -> m [a] #-}
 {-# SPECIALIZE unfoldM' :: IO (Maybe a) -> IO [a] #-}
