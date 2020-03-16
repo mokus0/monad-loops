@@ -1,7 +1,7 @@
 name:                   monad-loops
 version:                0.4.2.1
 stability:              provisional
-license:                PublicDomain
+license:                BSD-3
 
 cabal-version:          >= 1.8
 build-type:             Simple
